@@ -733,21 +733,21 @@ class _PaymentMethodPage extends StatefulWidget {
 class _PaymentMethodPageState extends State<_PaymentMethodPage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => safePop(context: context),
-          mouseCursor: SystemMouseCursors.click,
-        ),
-        title: const Text('Payment Method'),
-        elevation: 0,
+    return GetBuilder<PaymentController>(
+      builder: (controller) => Scaffold(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-      ),
-      body: GetBuilder<PaymentController>(
-        builder: (controller) => Padding(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => safePop(context: context),
+            mouseCursor: SystemMouseCursors.click,
+          ),
+          title: const Text('Payment Method'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+        ),
+        body: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
@@ -822,6 +822,7 @@ class _PaymentMethodPageState extends State<_PaymentMethodPage> {
                     }
                   },
                   child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 8),
                     itemCount: controller.paymentMethods.length,
                     itemBuilder: (context, index) {
                       final method = controller.paymentMethods[index];
@@ -858,34 +859,35 @@ class _PaymentMethodPageState extends State<_PaymentMethodPage> {
                   ),
                 ),
               ),
-
-              const SizedBox(height: 20),
-
-              // Continue Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: controller.selectedPaymentMethod != null
-                      ? () => _navigateToReceiptUpload()
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Continue'),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 18),
-                    ],
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: controller.selectedPaymentMethod != null
+                    ? () => _navigateToReceiptUpload()
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Continue'),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

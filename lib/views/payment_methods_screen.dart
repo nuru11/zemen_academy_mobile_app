@@ -79,7 +79,7 @@ class PaymentMethodsScreen extends StatelessWidget {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                       itemCount: controller.paymentMethods.length,
                       itemBuilder: (context, index) {
                         final method = controller.paymentMethods[index];
@@ -91,32 +91,35 @@ class PaymentMethodsScreen extends StatelessWidget {
                       },
                     ),
             ),
+          ],
+        );
+      }),
+      bottomNavigationBar: Obx(() {
+        if (controller.isLoading) {
+          return const SizedBox.shrink();
+        }
 
-            // Continue Button
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              child: Obx(
-                () => ElevatedButton(
-                  onPressed: controller.selectedPaymentMethod != null
-                      ? () => _navigateToReceiptUpload(context, controller)
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Continue',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: ElevatedButton(
+              onPressed: controller.selectedPaymentMethod != null
+                  ? () => _navigateToReceiptUpload(context, controller)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
+              child: const Text(
+                'Continue',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
-          ],
+          ),
         );
       }),
     );
