@@ -1,0 +1,4 @@
+#include "Debug.xcconfig"
+PRODUCT_BUNDLE_IDENTIFIER=com.ethiozemenacademy.app
+APP_DISPLAY_NAME=Zemen Academy
+ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon-zemen_academy
