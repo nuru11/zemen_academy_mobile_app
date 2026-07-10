@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vector_academy/config/support_config.dart';
 import 'package:vector_academy/utils/navigation_utils.dart';
 
 class SupportPage extends StatelessWidget {
@@ -217,7 +218,7 @@ class SupportPage extends StatelessWidget {
         _buildContactCard(
           icon: Icons.telegram,
           title: 'Telegram Support',
-          subtitle: 'Get instant help via Telegram',
+          subtitle: supportTelegramHandle,
           color: const Color(0xFF0088cc),
           onTap: () => _launchTelegram(),
         ),
@@ -228,7 +229,7 @@ class SupportPage extends StatelessWidget {
         _buildContactCard(
           icon: Icons.email_rounded,
           title: 'Email Support',
-          subtitle: 'Send us an email for detailed assistance',
+          subtitle: supportEmail,
           color: const Color(0xFFEA4335),
           onTap: () => _launchEmail(),
         ),
@@ -239,7 +240,7 @@ class SupportPage extends StatelessWidget {
         _buildContactCard(
           icon: Icons.phone_rounded,
           title: 'Phone Support',
-          subtitle: 'Call us for immediate assistance',
+          subtitle: supportPhoneNumber,
           color: const Color(0xFF34A853),
           onTap: () => _launchPhone(),
         ),
@@ -446,8 +447,7 @@ class SupportPage extends StatelessWidget {
   }
 
   void _launchTelegram() async {
-    const telegramUrl = 'https://t.me/Remedial_Tricks_Admin';
-    final uri = Uri.parse(telegramUrl);
+    final uri = Uri.parse(supportTelegramUrl);
 
     try {
       if (await canLaunchUrl(uri)) {
@@ -471,8 +471,7 @@ class SupportPage extends StatelessWidget {
   }
 
   void _launchEmail() async {
-    const emailUrl = 'mailto:remedialtricks@gmail.com?subject=Support Request';
-    final uri = Uri.parse(emailUrl);
+    final uri = Uri.parse(supportEmailUrl);
 
     try {
       if (await canLaunchUrl(uri)) {
@@ -496,8 +495,7 @@ class SupportPage extends StatelessWidget {
   }
 
   void _launchPhone() async {
-    const phoneUrl = 'tel:0927052140';
-    final uri = Uri.parse(phoneUrl);
+    final uri = Uri.parse(supportPhoneUrl);
 
     try {
       if (await canLaunchUrl(uri)) {

@@ -1,3 +1,5 @@
+export 'support_config.dart';
+
 const appTitle = 'Zemen Academy';
 const backendAppPackage = 'com.ethiozemenacademy.app';
 const logoAsset = 'assets/images/zemenlogo.png';

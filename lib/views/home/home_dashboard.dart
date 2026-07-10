@@ -5,6 +5,7 @@ import 'package:vector_academy/controllers/controllers.dart';
 import "package:vector_academy/models/models.dart";
 import "package:vector_academy/utils/utils.dart";
 import "package:vector_academy/services/services.dart";
+import 'package:vector_academy/config/support_config.dart';
 import 'package:vector_academy/views/views.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -88,7 +89,7 @@ class HomeDashboard extends StatelessWidget {
                       (dynamicTelegramLink != null &&
                           dynamicTelegramLink.isNotEmpty)
                       ? dynamicTelegramLink
-                      : 'https://t.me/entrance_tricks';
+                      : supportTelegramUrl;
 
                   if (!await launchUrl(Uri.parse(targetTelegramLink))) {
                     throw Exception('Could not launch $targetTelegramLink');
@@ -240,7 +241,7 @@ class HomeDashboard extends StatelessWidget {
                 if (!await launchUrl(
                   Uri.parse(
                     controller.appHeader?.link ??
-                        'https://t.me/entrance_tricks',
+                        supportTelegramUrl,
                   ),
                 )) {}
               },

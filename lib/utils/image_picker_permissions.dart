@@ -47,13 +47,20 @@ class ImagePickerPermissions {
   }
 
   static Permission? _permissionForSource(ImageSource source) {
-    if (!Platform.isIOS && !Platform.isAndroid) return null;
+    if (kIsWeb) return null;
 
     switch (source) {
       case ImageSource.camera:
-        return Permission.camera;
+        if (Platform.isIOS || Platform.isAndroid) {
+          return Permission.camera;
+        }
+        return null;
       case ImageSource.gallery:
-        return Permission.photos;
+        // Android uses the system photo picker without READ_MEDIA_IMAGES.
+        if (Platform.isIOS) {
+          return Permission.photos;
+        }
+        return null;
     }
   }
 

@@ -471,16 +471,23 @@ class _AboutPageState extends State<AboutPage> {
           const SizedBox(height: 20),
 
           _buildContactItem(
+            icon: Icons.telegram,
+            title: 'Telegram',
+            value: supportTelegramHandle,
+            onTap: () => _launchTelegram(),
+          ),
+
+          _buildContactItem(
             icon: Icons.email_rounded,
             title: 'Email',
-            value: 'remedialtricks@gmail.com',
+            value: supportEmail,
             onTap: () => _launchEmail(),
           ),
 
           _buildContactItem(
             icon: Icons.phone_rounded,
             title: 'Phone',
-            value: '0927052140',
+            value: supportPhoneNumber,
             onTap: () => _launchPhone(),
           ),
 
@@ -618,9 +625,32 @@ class _AboutPageState extends State<AboutPage> {
     );
   }
 
+  void _launchTelegram() async {
+    final uri = Uri.parse(supportTelegramUrl);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        Get.snackbar(
+          'Error',
+          'Could not open Telegram. Please install Telegram app.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to open Telegram: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
   void _launchEmail() async {
-    const emailUrl = 'mailto:remedialtricks@gmail.com?subject=Support Request';
-    final uri = Uri.parse(emailUrl);
+    final uri = Uri.parse(supportEmailUrl);
 
     try {
       if (await canLaunchUrl(uri)) {
@@ -644,8 +674,7 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   void _launchPhone() async {
-    const phoneUrl = 'tel:0927052140';
-    final uri = Uri.parse(phoneUrl);
+    final uri = Uri.parse(supportPhoneUrl);
 
     try {
       if (await canLaunchUrl(uri)) {
