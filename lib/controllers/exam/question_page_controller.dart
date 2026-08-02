@@ -19,8 +19,11 @@ class QuestionPageController extends GetxController {
   final RxBool showAnswers = false.obs;
   final RxBool showSolution = false.obs;
   final RxBool isSubmitting = false.obs; // Track submission status
+  final RxBool showingNoteInterstitial = false.obs;
   final RxList<bool> submittedQuestions =
       <bool>[].obs; // Track which questions have been submitted
+
+  int? noteBlockStartIndex;
 
   // Timer
   Timer? _timer;
@@ -38,6 +41,10 @@ class QuestionPageController extends GetxController {
   final HiveExamStorage _examStorage = HiveExamStorage();
   final ExamService _examService = ExamService();
 
+  bool _isInitialized = false;
+  int? _initializedExamId;
+  int? _initializedQuestionCount;
+
   void initializeQuiz({
     required String title,
     required int initialTimeMinutes,
@@ -49,6 +56,19 @@ class QuestionPageController extends GetxController {
     int examId = 0,
     String examModeType = 'both',
   }) {
+    // Skip re-init on rebuilds (e.g. returning from ExamResultPage) so
+    // answers, timer, and review state are not wiped.
+    if (_isInitialized &&
+        _initializedExamId == examId &&
+        _initializedQuestionCount == questions.length) {
+      this.onComplete = onComplete;
+      this.allowReview = allowReview;
+      this.showTimer = showTimer;
+      this.mode = mode;
+      this.examModeType = examModeType;
+      return;
+    }
+
     this.title = title;
     this.initialTimeMinutes = initialTimeMinutes;
     this.questions = questions;
@@ -59,24 +79,42 @@ class QuestionPageController extends GetxController {
     this.examId = examId;
     this.examModeType = examModeType;
 
+    _timer?.cancel();
+
     // Handle empty questions
     if (questions.isEmpty) {
       userAnswers.value = [];
       timeRemaining.value = 0;
       submittedQuestions.value = [];
+      _isInitialized = true;
+      _initializedExamId = examId;
+      _initializedQuestionCount = 0;
       return;
     }
 
     userAnswers.value = List.filled(questions.length, null);
     submittedQuestions.value = List.filled(questions.length, false);
     timeRemaining.value = initialTimeMinutes * 60;
-    _restoreProgressIfAny();
+    isCompleted.value = false;
+    showAnswers.value = false;
+    showSolution.value = false;
+    isSubmitting.value = false;
+    _clearNoteInterstitial();
+    currentQuestionIndex.value = 0;
+    _restoreProgressIfAny().whenComplete(
+      _maybeShowNoteInterstitialForCurrentIndex,
+    );
     if (showTimer) {
       _startTimer();
     }
+
+    _isInitialized = true;
+    _initializedExamId = examId;
+    _initializedQuestionCount = questions.length;
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (timeRemaining.value > 0) {
         timeRemaining.value--;
@@ -131,17 +169,60 @@ class QuestionPageController extends GetxController {
   }
 
   void previousQuestion() {
-    if (questions.isNotEmpty && currentQuestionIndex.value > 0) {
-      currentQuestionIndex.value--;
-      showSolution.value = false; // Reset solution state when navigating
+    if (questions.isEmpty) return;
+
+    if (showingNoteInterstitial.value) {
+      if (noteBlockStartIndex != null && noteBlockStartIndex! > 0) {
+        currentQuestionIndex.value = noteBlockStartIndex! - 1;
+      }
+      _clearNoteInterstitial();
+      showSolution.value = false;
       update();
       _persistProgress();
+      return;
     }
+
+    final current = currentQuestionIndex.value;
+    if (current <= 0) return;
+
+    if (Question.isNoteBlockStart(questions, current)) {
+      noteBlockStartIndex = current;
+      showingNoteInterstitial.value = true;
+      showSolution.value = false;
+      update();
+      return;
+    }
+
+    currentQuestionIndex.value--;
+    showSolution.value = false; // Reset solution state when navigating
+    update();
+    _persistProgress();
   }
 
   void nextQuestion() async {
-    if (questions.isEmpty ||
-        currentQuestionIndex.value >= questions.length - 1) {
+    if (questions.isEmpty) return;
+
+    if (showingNoteInterstitial.value) {
+      if (noteBlockStartIndex != null) {
+        currentQuestionIndex.value = noteBlockStartIndex!;
+      }
+      _clearNoteInterstitial();
+      showSolution.value = false;
+      update();
+      _persistProgress();
+      return;
+    }
+
+    if (currentQuestionIndex.value >= questions.length - 1) {
+      return;
+    }
+
+    final nextIndex = currentQuestionIndex.value + 1;
+    if (Question.isNoteBlockStart(questions, nextIndex)) {
+      noteBlockStartIndex = nextIndex;
+      showingNoteInterstitial.value = true;
+      showSolution.value = false;
+      update();
       return;
     }
 
@@ -151,14 +232,48 @@ class QuestionPageController extends GetxController {
     _persistProgress();
   }
 
+  Question? get noteInterstitialQuestion {
+    if (noteBlockStartIndex == null) return null;
+    if (noteBlockStartIndex! < 0 || noteBlockStartIndex! >= questions.length) {
+      return null;
+    }
+    return questions[noteBlockStartIndex!];
+  }
+
+  void _clearNoteInterstitial() {
+    showingNoteInterstitial.value = false;
+    noteBlockStartIndex = null;
+  }
+
+  /// Show note screen when landing on a note-block start (including Q1).
+  void _maybeShowNoteInterstitialForCurrentIndex() {
+    if (isCompleted.value || showAnswers.value || questions.isEmpty) return;
+    final index = currentQuestionIndex.value;
+    if (!Question.isNoteBlockStart(questions, index)) return;
+    noteBlockStartIndex = index;
+    showingNoteInterstitial.value = true;
+    update();
+  }
+
   /// Check if next button should be enabled
   bool get canMoveToNext {
+    if (showingNoteInterstitial.value) return true;
+    // In review mode, allow navigating freely (including skipped questions)
+    if (showAnswers.value) return true;
+
     if (userAnswers[currentQuestionIndex.value] == null) {
       return false; // No answer selected
     }
 
     // Just need an answer selected, no submission required
     return true;
+  }
+
+  bool get canMoveToPrevious {
+    if (showingNoteInterstitial.value) {
+      return noteBlockStartIndex != null && noteBlockStartIndex! > 0;
+    }
+    return currentQuestionIndex.value > 0;
   }
 
   void goToQuestion(int index) {
@@ -257,6 +372,8 @@ class QuestionPageController extends GetxController {
 
     // Only navigate if submission was successful
     if (submissionSuccessful) {
+      isSubmitting.value = false;
+      update();
       _navigateToResults();
     }
   }
@@ -308,9 +425,28 @@ class QuestionPageController extends GetxController {
   }
 
   void finishQuiz() {
-    final timeSpent = (initialTimeMinutes * 60) - timeRemaining.value;
-    onComplete?.call(userAnswers.cast<int>().toList(), timeSpent);
-    Get.back();
+    // Results already shown after submit; exiting review should only leave the page.
+    if (!isCompleted.value) {
+      final timeSpent = (initialTimeMinutes * 60) - timeRemaining.value;
+      // Replace nulls (skipped) with 0 so onComplete always receives List<int>
+      final answers = userAnswers.map((a) => a ?? 0).toList();
+      onComplete?.call(answers, timeSpent);
+    }
+    _safePop();
+  }
+
+  /// Pop without Get.back()'s snackbar teardown (can throw LateInitializationError).
+  void _safePop() {
+    final navigator = Get.key.currentState;
+    if (navigator != null && navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    try {
+      Get.back();
+    } catch (_) {
+      // Ignore GetX snackbar teardown failures
+    }
   }
 
   void toggleSolution() {

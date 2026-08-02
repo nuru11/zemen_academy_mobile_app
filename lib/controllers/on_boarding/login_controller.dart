@@ -37,21 +37,35 @@ class LoginController extends GetxController {
         await authService.saveAuthToken(response.tokens);
         await authService.saveUser(user);
 
-        await DeviceService().registerDevice(user.phoneNumber);
+        try {
+          await DeviceService().registerDevice(user.phoneNumber);
+        } catch (e) {
+          logger.w('Device registration failed after login: $e');
+        }
 
         if (Get.isRegistered<HomeDashboardController>()) {
           Get.delete<HomeDashboardController>(force: true);
         }
         Get.offAllNamed(VIEWS.home.path);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          AppSnackbar.showSuccess('Success', 'Login successful!');
-        });
-      } on DioException catch (e) {
-        AppSnackbar.showError('Login Failed', e.message ?? 'Failed to login');
+        AppSnackbar.showSuccessAfterNav('Success', 'Login successful!');
       } on ApiException catch (e) {
-        AppSnackbar.showError('Login Failed', e.message);
+        AppSnackbar.showError(
+          'Login Failed',
+          ApiErrorMessage.from(
+            e,
+            fallback: 'Invalid credentials. Please try again.',
+          ),
+        );
+      } on DioException catch (e) {
+        AppSnackbar.showError(
+          'Login Failed',
+          ApiErrorMessage.from(e, fallback: 'Failed to login'),
+        );
       } catch (e) {
-        AppSnackbar.showError('Login Failed', e.toString());
+        AppSnackbar.showError(
+          'Login Failed',
+          ApiErrorMessage.from(e, fallback: 'Failed to login'),
+        );
       } finally {
         _setLoading(false);
       }

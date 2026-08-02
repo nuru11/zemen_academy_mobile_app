@@ -42,6 +42,7 @@ class UserService extends GetxController {
       'phone_number': phone,
       'password': password,
       'gradeId': grade,
+      'app_package': backendAppPackage,
     };
     
     final response = await apiClient.post(
@@ -53,30 +54,36 @@ class UserService extends GetxController {
       logger.i(response.data);
       return RegisterResponse.fromJson(response.data);
     }
-    String? error;
-    if (response.data['phone_number'] != null) {
-      error = "Phone Number: ${response.data['phone_number'][0]}";
-    }
-    if (response.data['grade'] != null) {
-      error = "Grade: ${response.data['grade'][0]}";
-    }
-    if (response.data['password'] != null) {
-      error = "Password: ${response.data['password'][0]}";
-    }
-    if (response.data['first_name'] != null) {
-      error = "First Name: ${response.data['first_name'][0]}";
-    }
-    if (response.data['last_name'] != null) {
-      error = "Last Name: ${response.data['last_name'][0]}";
-    }
     logger.e(response.data);
-    throw ApiException(error ?? "Failed to register user");
+    final raw =
+        ApiErrorMessage.fromData(response.data) ?? 'Failed to register user';
+    throw ApiException(_friendlyRegisterMessage(raw));
+  }
+
+  /// Maps duplicate-phone / identity uniqueness errors to a clear UX string.
+  static String _friendlyRegisterMessage(String message) {
+    final lower = message.toLowerCase();
+    final mentionsPhoneOrAccount = lower.contains('phone') ||
+        lower.contains('account key') ||
+        lower.contains('account_key') ||
+        lower.contains('app_package');
+    final looksDuplicate = lower.contains('already exists') ||
+        lower.contains('already registered') ||
+        (lower.contains('unique') && mentionsPhoneOrAccount);
+    if (mentionsPhoneOrAccount && looksDuplicate) {
+      return 'This number is already registered';
+    }
+    return message;
   }
 
   Future<AuthResponse> loginUser(String phone, String password) async {
     final response = await apiClient.post(
       '/auth/login/',
-      data: {'phone_number': phone, 'password': password},
+      data: {
+        'phone_number': phone,
+        'password': password,
+        'app_package': backendAppPackage,
+      },
     );
     if (response.statusCode == 200) {
       logger.i(response.data);
@@ -86,7 +93,9 @@ class UserService extends GetxController {
 
     logger.e(response.data);
 
-    throw ApiException(response.data['detail'] ?? "Failed to login user");
+    throw ApiException(
+      ApiErrorMessage.fromData(response.data) ?? 'Failed to login user',
+    );
   }
 
   Future<User> updateUser({
