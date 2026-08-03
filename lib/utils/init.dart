@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:vector_academy/models/models.dart';
-import 'package:vector_academy/services/api/api.dart';
 import 'package:vector_academy/utils/storages/storages.dart';
 import 'package:vector_academy/utils/storages/app_header.dart';
 import 'package:vector_academy/utils/utils.dart';
@@ -42,13 +41,14 @@ Future<void> initialize() async {
   await HiveUserStorage().ensureInitialized();
   await ConfigPreference.init();
 
-  Get.put(AuthService());
+  await Get.putAsync(() async {
+    final auth = AuthService();
+    await auth.loadUser();
+    return auth;
+  });
   Get.put(CoreService());
   Get.put(GradeService());
   Get.put(local_notif.LocalNotificationService());
-
-  final authToken = await HiveAuthStorage().getAuthToken();
-  BaseApiClient.setTokens(authToken?.access ?? '', authToken?.refresh ?? '');
 
   logger.i('Initializing the application');
 }
