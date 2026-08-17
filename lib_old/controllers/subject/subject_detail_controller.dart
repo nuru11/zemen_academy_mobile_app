@@ -77,7 +77,7 @@ class SubjectDetailController extends GetxController {
       );
       Get.snackbar(
         'Subscription Required',
-        'Pay once to unlock all chapters in $_subjectName.',
+        'Pay once to unlock all sections in $_subjectName.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;

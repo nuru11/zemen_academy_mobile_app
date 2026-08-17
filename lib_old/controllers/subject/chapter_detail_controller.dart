@@ -65,7 +65,7 @@ class ChapterDetailController extends GetxController {
   void _showLockedContentMessage() {
     Get.snackbar(
       'Locked Content',
-      'Subscribe to this subject to access all chapters.',
+      'Subscribe to this subject to access all sections.',
       backgroundColor: Colors.orange,
       colorText: Colors.white,
     );
@@ -85,7 +85,7 @@ class ChapterDetailController extends GetxController {
       );
       Get.snackbar(
         'Subscription Required',
-        'Subscribe to unlock all chapters for this subject.',
+        'Subscribe to unlock all sections for this subject.',
         snackPosition: SnackPosition.BOTTOM,
       );
       super.onInit();

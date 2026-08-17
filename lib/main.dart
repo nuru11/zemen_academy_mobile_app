@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:fvp/fvp.dart' as fvp;
 import 'package:vector_academy/config/app_config.dart';
 import 'package:vector_academy/views/home/home.dart';
 import 'package:vector_academy/views/views.dart';
@@ -12,6 +16,7 @@ import 'package:vector_academy/models/models.dart';
 void main() async {
   // Remove debug banner
   WidgetsFlutterBinding.ensureInitialized();
+  await _registerAndroidVideoBackend();
   await initialize();
   await warmUpDeferredStorages();
 
@@ -27,13 +32,11 @@ void main() async {
   // Initialize deep link service
   DeepLinkService().initialize();
 
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  MyApp({super.key});
-
-  final service = Get.find<AuthService>();
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +47,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return Overlay(
           initialEntries: [
-            OverlayEntry(
-              builder: (_) => child ?? const SizedBox.shrink(),
-            ),
+            OverlayEntry(builder: (_) => child ?? const SizedBox.shrink()),
           ],
         );
       },
@@ -163,9 +164,54 @@ class MyApp extends StatelessWidget {
           }),
         ),
       ],
-      initialRoute: service.isAuthenticated
-          ? VIEWS.home.path
-          : VIEWS.login.path,
+      initialRoute: VIEWS.home.path,
     );
+  }
+}
+
+Future<void> _registerAndroidVideoBackend() async {
+  if (!Platform.isAndroid) return;
+
+  try {
+    final info = await DeviceInfoPlugin().androidInfo;
+    final fingerprint = [
+      info.manufacturer,
+      info.brand,
+      info.model,
+      info.hardware,
+      info.board,
+      info.device,
+    ].join(' ').toLowerCase();
+    const lowEndMarkers = [
+      'itel',
+      'tecno',
+      'infinix',
+      'unisoc',
+      'spreadtrum',
+      'sc98',
+      'sc83',
+    ];
+    final useSoftwareFirst =
+        info.isLowRamDevice ||
+        (info.physicalRamSize > 0 && info.physicalRamSize <= 3072) ||
+        lowEndMarkers.any(fingerprint.contains);
+
+    fvp.registerWith(
+      options: {
+        'platforms': ['android'],
+        'video.decoders': useSoftwareFirst
+            ? ['FFmpeg', 'AMediaCodec']
+            : ['AMediaCodec', 'FFmpeg'],
+      },
+    );
+    logger.d('Registered fvp video backend (softwareFirst=$useSoftwareFirst)');
+  } catch (e) {
+    fvp.registerWith(
+      options: {
+        'platforms': ['android'],
+        'video.decoders': ['AMediaCodec', 'FFmpeg'],
+      },
+    );
+    logger.w('Failed to detect device for video backend, using default: $e');
   }
 }

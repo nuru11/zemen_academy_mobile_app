@@ -75,7 +75,7 @@ class SubjectDetail extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'All Chapters',
+            'All sections',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,

@@ -96,7 +96,7 @@ class PaymentPage extends StatelessWidget {
         : 'Unlock $targetSubjectName';
     final subtitle = targetSubjectName == null || targetSubjectName.isEmpty
         ? 'Select and pay for your subscription'
-        : 'Pay once to unlock all chapters';
+        : 'Pay once to unlock all sections';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),

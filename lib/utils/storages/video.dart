@@ -119,4 +119,36 @@ class HiveVideoStorage extends BaseObjectStorage<List<Video>> {
     await ensureInitialized();
     _box.put('downloaded_videos', []);
   }
+
+  Future<List<Map<String, dynamic>>> getPausedDownloads() async {
+    await ensureInitialized();
+    final videos = _box.get('paused_video_downloads') ?? [];
+    return videos
+        .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  Future<void> upsertPausedDownload(
+    int id,
+    double progress,
+    String partPath,
+  ) async {
+    await ensureInitialized();
+    final videos = _box.get('paused_video_downloads') ?? [];
+    videos.removeWhere((element) => element['id'] == id);
+    videos.add({'id': id, 'progress': progress, 'part_path': partPath});
+    _box.put('paused_video_downloads', videos);
+  }
+
+  Future<void> removePausedDownload(int id) async {
+    await ensureInitialized();
+    final videos = _box.get('paused_video_downloads') ?? [];
+    videos.removeWhere((element) => element['id'] == id);
+    _box.put('paused_video_downloads', videos);
+  }
+
+  Future<void> removeAllPausedDownloads() async {
+    await ensureInitialized();
+    _box.put('paused_video_downloads', []);
+  }
 }

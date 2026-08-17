@@ -5,7 +5,6 @@ import 'package:vector_academy/models/models.dart';
 import 'package:vector_academy/services/services.dart';
 import 'package:vector_academy/services/api/exceptions.dart';
 import 'package:vector_academy/utils/utils.dart';
-import 'package:vector_academy/views/views.dart';
 import 'package:vector_academy/services/api/device.dart';
 
 class RegisterController extends GetxController {
@@ -32,6 +31,8 @@ class RegisterController extends GetxController {
 
   bool _hasAcceptedPrivacyPolicy = false;
   bool get hasAcceptedPrivacyPolicy => _hasAcceptedPrivacyPolicy;
+  Map<String, dynamic>? _redirectArgs;
+  Map<String, dynamic>? get redirectArgs => _redirectArgs;
 
   // Grade and Stream properties
 
@@ -128,7 +129,7 @@ class RegisterController extends GetxController {
           logger.w('Device registration failed after register: $e');
         }
 
-        Get.offAllNamed(VIEWS.home.path);
+        navigateAfterAuth(captureAuthRedirectArgs() ?? _redirectArgs);
         AppSnackbar.showSuccessAfterNav(
           'Success',
           'Registration successful! Please verify your phone number.',
@@ -168,6 +169,7 @@ class RegisterController extends GetxController {
     super.onInit();
     // Recreate formKey to avoid GlobalKey conflicts when widget rebuilds
     formKey = GlobalKey<FormState>();
+    _redirectArgs = captureAuthRedirectArgs();
     loadGrades();
   }
 

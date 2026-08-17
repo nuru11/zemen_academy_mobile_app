@@ -201,7 +201,7 @@ class PaymentPage extends StatelessWidget {
         : 'Unlock $targetSubjectName';
     final subtitle = targetSubjectName == null || targetSubjectName.isEmpty
         ? 'Select and pay for your subscription'
-        : 'Pay once to unlock all chapters';
+        : 'Pay once to unlock all sections';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -715,6 +715,13 @@ class PaymentPage extends StatelessWidget {
   }
 
   void _navigateToPaymentMethod(Package package, PaymentController controller) {
+    final args = Get.arguments;
+    final checkoutArgs = args is Map
+        ? Map<String, dynamic>.from(args)
+        : <String, dynamic>{};
+    if (!requireAuthForPurchase(checkoutArgs: checkoutArgs)) {
+      return;
+    }
     controller.beginCheckout(package);
     Get.to(() => _PaymentMethodPage(package: package, controller: controller));
   }

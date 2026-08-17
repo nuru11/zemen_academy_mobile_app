@@ -47,6 +47,6 @@ class NavigationDrawerController extends GetxController {
   void logout() async {
     await Get.find<AuthService>().logout();
     clearHomeTabControllers();
-    Get.offAllNamed(VIEWS.login.path);
+    Get.offAllNamed(VIEWS.home.path);
   }
 }

@@ -43,6 +43,11 @@ class HomeDashboardController extends GetxController {
 
   List<Subject> _subjects = [];
   List<Subject> get subjects => _subjects;
+  List<Subject> get popularSubjects {
+    final items = _subjects.where((subject) => subject.isPopular).toList();
+    items.sort((a, b) => a.popularOrder.compareTo(b.popularOrder));
+    return items;
+  }
   AppHeaderText? _appHeader;
   AppHeaderText? get appHeader => _appHeader;
   bool _isFeaturedUpdatesLoading = false;
@@ -146,7 +151,7 @@ class HomeDashboardController extends GetxController {
 
       _subjects = await SubjectsService().getSubjects(
         device.id,
-        gradeId: gradeId ?? 0,
+        gradeId: gradeId,
       );
       await HiveSubjectsStorage().write('subjects', _subjects);
       _loadError = null;
@@ -234,7 +239,7 @@ class HomeDashboardController extends GetxController {
 
       _subjects = await SubjectsService().getSubjects(
         device.id,
-        gradeId: _user?.grade.id ?? 0,
+        gradeId: _user?.grade.id,
       );
       logger.i(_subjects.map((e) => e.isLocked).toList()[0]);
     } catch (e) {

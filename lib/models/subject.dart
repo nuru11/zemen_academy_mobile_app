@@ -17,6 +17,10 @@ class Subject {
   final bool isLocked;
   @JsonKey(name: 'certification_available', defaultValue: false)
   final bool certificationAvailable;
+  @JsonKey(name: 'is_popular', defaultValue: false)
+  final bool isPopular;
+  @JsonKey(name: 'popular_order', defaultValue: 0)
+  final int popularOrder;
 
   final List<Chapter> chapters;
 
@@ -30,6 +34,8 @@ class Subject {
     this.chapters = const [],
     this.isLocked = true,
     this.certificationAvailable = false,
+    this.isPopular = false,
+    this.popularOrder = 0,
   });
 
   factory Subject.fromJson(Map<String, dynamic> json) =>
@@ -51,6 +57,8 @@ class SubjectTypeAdapter implements TypeAdapter<Subject> {
       chapters: (json['chapters'] as List).cast<Chapter>(),
       isLocked: json['is_locked'] ?? true,
       certificationAvailable: json['certification_available'] ?? false,
+      isPopular: json['is_popular'] ?? false,
+      popularOrder: (json['popular_order'] as num?)?.toInt() ?? 0,
     );
   }
 

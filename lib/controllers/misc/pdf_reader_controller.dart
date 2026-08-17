@@ -5,13 +5,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:vector_academy/utils/constants/constants.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:screen_protector/screen_protector.dart';
+import 'package:vector_academy/services/note_file_cache.dart';
 import 'dart:io';
 import 'dart:async';
-import '../../utils/utils.dart'; // Import logger
+import '../../utils/utils.dart';
 
 class PDFReaderController extends GetxController {
-  // Observable properties
   final RxString _localPath = RxString('');
   final RxBool _isLoading = RxBool(true);
   final RxBool _isDownloading = RxBool(false);
@@ -22,20 +24,33 @@ class PDFReaderController extends GetxController {
   final RxBool _isLandscape = RxBool(false);
   final RxBool _isReadMode = RxBool(false);
   final RxBool _showReadModeHint = RxBool(true);
+  final RxBool _isTextMode = RxBool(false);
+  final RxBool _isSpeaking = RxBool(false);
+  final RxBool _isListenPaused = RxBool(false);
+  final RxDouble _speechRate = RxDouble(0.5);
+  final RxList<String> _pageTexts = <String>[].obs;
+  final RxString _announcement = RxString('');
+  final RxBool _isExtractingText = RxBool(false);
 
-  // PDF details
   late String pdfUrl;
   late String pdfTitle;
   late int pdfId;
   String? certificateNumber;
+  bool protectContent = false;
+  bool enableListen = false;
 
-  // PDF Controller
   PDFViewController? _pdfViewController;
-
-  // Timer for hiding hint
   Timer? _hintTimer;
+  final FlutterTts _tts = FlutterTts();
+  bool _closed = false;
+  int? _sessionId;
+  String? _sessionUrl;
+  bool _listenSessionActive = false;
+  bool _restartingSpeech = false;
 
-  // Getters
+  static const List<double> _speechRates = [0.35, 0.5, 0.7];
+  static const List<String> _speechRateLabels = ['Slow', 'Normal', 'Fast'];
+
   String get localPath => _localPath.value;
   bool get isLoading => _isLoading.value;
   bool get isDownloading => _isDownloading.value;
@@ -48,24 +63,107 @@ class PDFReaderController extends GetxController {
   bool get isLandscape => _isLandscape.value;
   bool get isReadMode => _isReadMode.value;
   bool get showReadModeHint => _showReadModeHint.value;
+  bool get isTextMode => _isTextMode.value;
+  bool get isSpeaking => _isSpeaking.value;
+  bool get isListenPaused => _isListenPaused.value;
+  double get speechRate => _speechRate.value;
+  String get announcement => _announcement.value;
+  bool get isExtractingText => _isExtractingText.value;
+  String get speechRateLabel {
+    final index = _speechRates.indexOf(_speechRate.value);
+    if (index < 0) return 'Normal';
+    return _speechRateLabels[index];
+  }
+
+  String get currentPageText {
+    if (_currentPage.value < 0 || _currentPage.value >= _pageTexts.length) {
+      return '';
+    }
+    return _pageTexts[_currentPage.value];
+  }
+
+  bool get currentPageHasText => currentPageText.trim().isNotEmpty;
+
+  String get pageStatusLabel {
+    if (totalPages <= 0) return pdfTitle;
+    return '$pdfTitle, PDF, page ${currentPage + 1} of $totalPages. Play to listen';
+  }
 
   void initialize(
     String url,
     String title,
     int id, {
     String? certificateNumber,
+    bool protectContent = false,
+    bool enableListen = false,
   }) {
-    logger.d('Initializing PDF Reader with URL: $url, Title: $title, ID: $id');
+    if (_sessionId == id && _sessionUrl == url && hasLocalPath && !hasError) {
+      this.protectContent = protectContent;
+      this.enableListen = enableListen;
+      return;
+    }
+
+    logger.d('Initializing PDF Reader with title: $title, ID: $id');
     pdfUrl = url;
     pdfTitle = title;
     pdfId = id;
     this.certificateNumber = certificateNumber;
+    this.protectContent = protectContent;
+    this.enableListen = enableListen;
+    _sessionId = id;
+    _sessionUrl = url;
+    _currentPage.value = 0;
+    _totalPages.value = 0;
+    _isReady.value = false;
+    _pageTexts.clear();
+    _isTextMode.value = false;
+    _stopListenInternal();
     _setupOrientations();
+    _configureTts();
+    _applyScreenProtection();
     _initializePDF();
   }
 
+  Future<void> _configureTts() async {
+    try {
+      await _tts.setSpeechRate(_speechRate.value);
+      await _tts.setVolume(1.0);
+      await _tts.setPitch(1.0);
+      _tts.setCompletionHandler(() {
+        if (_closed || !_listenSessionActive || _restartingSpeech) return;
+        _advanceAfterPageSpoken();
+      });
+      _tts.setCancelHandler(() {
+        if (_closed || _restartingSpeech) return;
+        if (!_isListenPaused.value) {
+          _isSpeaking.value = false;
+          _listenSessionActive = false;
+        }
+      });
+    } catch (e) {
+      logger.e('Failed to configure TTS: $e');
+    }
+  }
+
+  Future<void> _applyScreenProtection() async {
+    if (!protectContent) return;
+    try {
+      await ScreenProtector.protectDataLeakageOn();
+    } catch (e) {
+      logger.w('Could not enable screen protection: $e');
+    }
+  }
+
+  Future<void> _clearScreenProtection() async {
+    if (!protectContent) return;
+    try {
+      await ScreenProtector.protectDataLeakageOff();
+    } catch (e) {
+      logger.w('Could not disable screen protection: $e');
+    }
+  }
+
   void _setupOrientations() {
-    // Allow both portrait and landscape initially
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -74,33 +172,29 @@ class PDFReaderController extends GetxController {
   }
 
   Future<void> _initializePDF() async {
-    logger.d('Starting PDF initialization for URL: $pdfUrl');
+    logger.d('Starting PDF initialization');
 
-    // Check if the URL is valid
     if (pdfUrl.isEmpty || pdfUrl.toLowerCase() == 'pdf') {
-      _setError(
-        'Invalid PDF URL: $pdfUrl. The content field contains only file type, not the actual URL.',
-      );
-      logger.e('Invalid PDF URL provided: $pdfUrl');
+      logger.e('Invalid PDF URL provided');
+      _setError('This PDF could not be opened. Please try again.');
       return;
     }
 
     if (_isLocalFile(pdfUrl)) {
-      logger.d('Handling as local file: $pdfUrl');
       _handleLocalFile();
     } else {
-      logger.d('Handling as remote file, downloading: $pdfUrl');
+      if (protectContent) {
+        _setError('This PDF could not be opened. Please try again.');
+        return;
+      }
       await _downloadPDF();
     }
   }
 
   bool _isLocalFile(String url) {
-    final isLocal =
-        url.startsWith('/') ||
+    return url.startsWith('/') ||
         url.startsWith('file://') ||
         (url.contains(':') && !url.startsWith('http'));
-    logger.d('URL $url is local file: $isLocal');
-    return isLocal;
   }
 
   void _handleLocalFile() {
@@ -109,59 +203,49 @@ class PDFReaderController extends GetxController {
       _clearError();
 
       String filePath = pdfUrl;
-      logger.d('Processing local file path: $filePath');
-
       if (filePath.startsWith('file://')) {
-        filePath = filePath.substring(7); // Remove 'file://' prefix
-        logger.d('Cleaned file path: $filePath');
+        filePath = filePath.substring(7);
       }
 
       final file = File(filePath);
-      logger.d('Checking if file exists: ${file.path}');
-
       if (file.existsSync()) {
-        logger.d('File exists, setting local path: $filePath');
         _localPath.value = filePath;
         _setLoading(false);
+        _announce('Opening $pdfTitle');
+        _extractPageText();
       } else {
-        final errorMsg = 'Local file not found: $filePath';
-        logger.e(errorMsg);
+        logger.e('Local PDF file not found');
         _setLoading(false);
-        _setError(errorMsg);
+        _setError('This PDF could not be opened. Please try again.');
       }
     } catch (e) {
-      final errorMsg = 'Failed to load local file: $e';
-      logger.e(errorMsg);
+      logger.e('Failed to load local file: $e');
       _setLoading(false);
-      _setError(errorMsg);
+      _setError('This PDF could not be opened. Please try again.');
     }
   }
 
   Future<void> _downloadPDF() async {
     try {
-      logger.d('Starting PDF download from: $pdfUrl');
       _isDownloading.value = true;
       _clearError();
+      _announce('Opening PDF');
 
       final dio = Dio();
       final tempDir = await getTemporaryDirectory();
       final fileName = '${pdfId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = '${tempDir.path}/$fileName';
 
-      logger.d('Downloading to: $filePath');
-
       await dio.download(pdfUrl, filePath);
 
-      // Verify the downloaded file exists and has content
       final file = File(filePath);
       if (file.existsSync()) {
         final fileSize = await file.length();
-        logger.d('Download completed. File size: $fileSize bytes');
-
         if (fileSize > 0) {
           _localPath.value = filePath;
           _isDownloading.value = false;
           _setLoading(false);
+          _extractPageText();
         } else {
           throw Exception('Downloaded file is empty');
         }
@@ -169,47 +253,91 @@ class PDFReaderController extends GetxController {
         throw Exception('Downloaded file does not exist');
       }
     } catch (e) {
-      final errorMsg = 'Failed to download PDF: $e';
-      logger.e(errorMsg);
+      logger.e('Failed to download PDF: $e');
       _isDownloading.value = false;
       _setLoading(false);
-      _setError(errorMsg);
+      _setError('This PDF could not be opened. Please try again.');
     }
   }
 
+  Future<void> _extractPageText() async {
+    if (!enableListen || _localPath.value.isEmpty) return;
+    _isExtractingText.value = true;
+    try {
+      final bytes = await File(_localPath.value).readAsBytes();
+      final document = PdfDocument(inputBytes: bytes);
+      final extractor = PdfTextExtractor(document);
+      final pages = <String>[];
+      for (var i = 0; i < document.pages.count; i++) {
+        final text = extractor
+            .extractText(startPageIndex: i, endPageIndex: i)
+            .trim();
+        pages.add(text);
+      }
+      document.dispose();
+      if (_closed) return;
+      _pageTexts.assignAll(pages);
+      _announce(pageStatusLabel);
+    } catch (e) {
+      logger.e('Failed to extract PDF text: $e');
+      _pageTexts.clear();
+    } finally {
+      _isExtractingText.value = false;
+    }
+  }
+
+  void _announce(String message) {
+    _announcement.value = message;
+  }
+
   void onPageChanged(int? page, int? total) {
-    logger.d('Page changed - Page: $page, Total: $total');
     if (page != null) _currentPage.value = page;
     if (total != null) _totalPages.value = total;
+    if (isReady && totalPages > 0) {
+      _announce('Page ${currentPage + 1} of $totalPages');
+    }
   }
 
   void onViewCreated(PDFViewController controller) {
-    logger.d('PDF View created');
     _pdfViewController = controller;
     _isReady.value = true;
+    if (totalPages > 0) {
+      _announce(pageStatusLabel);
+    }
   }
 
   void onRender(int? pages) {
-    logger.d('PDF rendered with pages: $pages');
     if (pages != null) _totalPages.value = pages;
+    if (isReady && totalPages > 0) {
+      _announce(pageStatusLabel);
+    }
   }
 
   void onError(dynamic error) {
-    final errorMsg = 'Failed to load PDF: $error';
-    logger.e(errorMsg);
-    _setError(errorMsg);
+    logger.e('Failed to load PDF: $error');
+    _setError('This PDF could not be opened. Please try again.');
   }
 
   Future<void> goToPreviousPage() async {
     if (_pdfViewController != null && _currentPage.value > 0) {
-      await _pdfViewController!.setPage(_currentPage.value - 1);
+      final previous = _currentPage.value - 1;
+      await _pdfViewController!.setPage(previous);
+      _currentPage.value = previous;
+      if (_isSpeaking.value || _listenSessionActive) {
+        await speakCurrentPage();
+      }
     }
   }
 
   Future<void> goToNextPage() async {
     if (_pdfViewController != null &&
         _currentPage.value < _totalPages.value - 1) {
-      await _pdfViewController!.setPage(_currentPage.value + 1);
+      final next = _currentPage.value + 1;
+      await _pdfViewController!.setPage(next);
+      _currentPage.value = next;
+      if (_isSpeaking.value || _listenSessionActive) {
+        await speakCurrentPage();
+      }
     }
   }
 
@@ -219,7 +347,93 @@ class PDFReaderController extends GetxController {
     }
   }
 
+  void toggleTextMode() {
+    _isTextMode.value = !_isTextMode.value;
+    _announce(_isTextMode.value ? 'Text mode on' : 'Text mode off');
+  }
+
+  Future<void> toggleListen() async {
+    if (_isSpeaking.value && !_isListenPaused.value) {
+      await pauseListen();
+    } else {
+      await speakCurrentPage();
+    }
+  }
+
+  Future<void> speakCurrentPage() async {
+    if (!enableListen) return;
+    final text = currentPageText.trim();
+    _listenSessionActive = true;
+    _isListenPaused.value = false;
+    _isSpeaking.value = true;
+    try {
+      _restartingSpeech = true;
+      await _tts.stop();
+      await _tts.setSpeechRate(_speechRate.value);
+      _restartingSpeech = false;
+      if (text.isEmpty) {
+        await _tts.speak('This page has no readable text');
+      } else {
+        await _tts.speak(text);
+      }
+    } catch (e) {
+      logger.e('TTS failed: $e');
+      _restartingSpeech = false;
+      _isSpeaking.value = false;
+      _listenSessionActive = false;
+    }
+  }
+
+  Future<void> pauseListen() async {
+    _isListenPaused.value = true;
+    _listenSessionActive = false;
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    _isSpeaking.value = false;
+    _announce('Paused');
+  }
+
+  Future<void> stopListen() async {
+    await _stopListenInternal();
+    _announce('Stopped');
+  }
+
+  Future<void> _stopListenInternal() async {
+    _listenSessionActive = false;
+    _isListenPaused.value = false;
+    _isSpeaking.value = false;
+    try {
+      await _tts.stop();
+    } catch (_) {}
+  }
+
+  Future<void> _advanceAfterPageSpoken() async {
+    if (_closed || !_listenSessionActive) {
+      _isSpeaking.value = false;
+      return;
+    }
+    if (_currentPage.value < _totalPages.value - 1) {
+      await goToNextPage();
+    } else {
+      _isSpeaking.value = false;
+      _listenSessionActive = false;
+      _announce('End of note');
+    }
+  }
+
+  void cycleSpeechRate() {
+    final index = _speechRates.indexOf(_speechRate.value);
+    final next = (index + 1) % _speechRates.length;
+    _speechRate.value = _speechRates[next];
+    _announce('Speed $speechRateLabel');
+    if (_isSpeaking.value) {
+      speakCurrentPage();
+    }
+  }
+
   void showDownloadOptions(BuildContext context) {
+    if (protectContent) return;
     if (!hasLocalPath || !isReady) {
       AppSnackbar.showError('Error', 'Certificate is not ready to download yet.');
       return;
@@ -335,6 +549,7 @@ class PDFReaderController extends GetxController {
   }
 
   Future<void> downloadAsPdf(BuildContext context) async {
+    if (protectContent) return;
     if (!hasLocalPath) {
       AppSnackbar.showError('Error', 'Certificate is not ready to download yet.');
       return;
@@ -360,6 +575,7 @@ class PDFReaderController extends GetxController {
   }
 
   Future<void> downloadAsImage(BuildContext context) async {
+    if (protectContent) return;
     final certNumber = certificateNumber?.trim();
     if (certNumber == null || certNumber.isEmpty) {
       AppSnackbar.showError('Error', 'Certificate ID not available.');
@@ -384,6 +600,7 @@ class PDFReaderController extends GetxController {
   }
 
   void sharePDF() async {
+    if (protectContent) return;
     if (!hasLocalPath) {
       AppSnackbar.showError('Error', 'Certificate is not ready to share yet.');
       return;
@@ -412,19 +629,19 @@ class PDFReaderController extends GetxController {
   }
 
   Future<void> retryInitialization() async {
-    logger.d('Retrying PDF initialization');
+    _sessionId = null;
+    _sessionUrl = null;
     _clearError();
     await _initializePDF();
   }
 
   void _setLoading(bool loading) {
-    logger.d('Setting loading state: $loading');
     _isLoading.value = loading;
   }
 
   void _setError(String error) {
-    logger.e('Setting error: $error');
     _errorMessage.value = error;
+    _announce(error);
   }
 
   void _clearError() {
@@ -435,52 +652,44 @@ class PDFReaderController extends GetxController {
     _isLandscape.value = !_isLandscape.value;
 
     if (_isLandscape.value) {
-      // Switch to landscape
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
     } else {
-      // Switch to portrait
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
-
-    logger.d(
-      'Orientation toggled to: ${_isLandscape.value ? "landscape" : "portrait"}',
-    );
   }
 
   void toggleReadMode() {
     _isReadMode.value = !_isReadMode.value;
 
     if (_isReadMode.value) {
-      // Hide system UI in read mode for immersive experience
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      // Show hint initially
       _showReadModeHint.value = true;
-      // Hide hint after 3 seconds
       _hintTimer?.cancel();
       _hintTimer = Timer(Duration(seconds: 3), () {
         _showReadModeHint.value = false;
       });
     } else {
-      // Show system UI when exiting read mode
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       _hintTimer?.cancel();
     }
-
-    logger.d('Read mode: ${_isReadMode.value ? "enabled" : "disabled"}');
   }
 
   @override
   void onClose() {
-    logger.d('Closing PDF Reader Controller');
-    // Reset orientation to portrait when leaving
+    _closed = true;
+    _stopListenInternal();
+    _tts.stop();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    // Reset system UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _hintTimer?.cancel();
     _pdfViewController = null;
+    _clearScreenProtection();
+    if (protectContent) {
+      NoteFileCache.instance.deleteViewFile(pdfId);
+    }
     super.onClose();
   }
 }

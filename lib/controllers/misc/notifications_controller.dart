@@ -26,6 +26,17 @@ class NotificationsController extends GetxController {
     _isLoading = true;
     update();
 
+    final isAuthenticated =
+        Get.isRegistered<AuthService>() &&
+        Get.find<AuthService>().isAuthenticated;
+    if (!isAuthenticated) {
+      _notifications = [];
+      _unreadCount = 0;
+      _isLoading = false;
+      update();
+      return;
+    }
+
     try {
       // Mock notifications data
       _notifications = await _notificationService.getNotifications();

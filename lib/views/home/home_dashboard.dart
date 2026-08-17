@@ -508,67 +508,252 @@ class HomeDashboard extends StatelessWidget {
   ) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20),
+      child: controller.isLoading
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.blue,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading ${subjectsLabel.toLowerCase()}...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : controller.loadError != null
+          ? _buildSubjectsErrorState(context, controller)
+          : controller.subjects.isEmpty
+          ? _buildSubjectsEmptyState(context, controller)
+          : RefreshIndicator(
+              onRefresh: () async {
+                await controller.loadSubjects();
+                await controller.loadFeaturedUpdates(showLoader: false);
+              },
+              color: Colors.blue,
+              backgroundColor: Colors.white,
+              strokeWidth: 2.5,
+              child: ListView.builder(
+                physics: AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                itemCount: controller.subjects.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildPopularCoursesSection(context, controller),
+                        Text(
+                          '$subjectsLabel Selection',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                      ],
+                    );
+                  }
+                  final subject = controller.subjects[index - 1];
+                  return _buildSubjectCard(context, subject, controller);
+                },
+              ),
+            ),
+    );
+  }
+
+  Widget _buildPopularCoursesSection(
+    BuildContext context,
+    HomeDashboardController controller,
+  ) {
+    final popularSubjects = controller.popularSubjects;
+    if (popularSubjects.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$subjectsLabel Selection',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBEAFE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.local_fire_department_rounded,
+                  size: 20,
+                  color: Color(0xFF1D4ED8),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Popular Courses',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    // Text(
+                    //   'Highlighted by admin',
+                    //   style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                    // ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: MediaQuery.sizeOf(context).width >= 768 ? 168 : 156,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: popularSubjects.length,
+              separatorBuilder: (_, index) => const SizedBox(width: 10),
+              itemBuilder: (context, index) => _buildPopularCourseCard(
+                context,
+                popularSubjects[index],
+                controller,
+              ),
             ),
           ),
-          SizedBox(height: 10),
-          Expanded(
-            child: controller.isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPopularCourseCard(
+    BuildContext context,
+    Subject subject,
+    HomeDashboardController controller,
+  ) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 360;
+    final isTablet = screenWidth >= 768;
+    final cardWidth =
+        (screenWidth * (isCompact ? 0.42 : 0.38))
+            .clamp(148.0, isTablet ? 200.0 : 176.0)
+            .toDouble();
+    final gradeColor = _getGradeIconColor(subject.name);
+    final totalChapters = subject.chapters.length;
+
+    return GestureDetector(
+      onTap: () => controller.selectSubject(subject.id),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: cardWidth,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: gradeColor.withValues(alpha: 0.2), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: gradeColor.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: gradeColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: subject.icon != null && subject.icon!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: subject.icon!,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Icon(
+                            _getGradeIcon(subject.name),
+                            size: 22,
+                            color: Colors.white,
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Loading ${subjectsLabel.toLowerCase()}...',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : controller.loadError != null
-                ? _buildSubjectsErrorState(context, controller)
-                : controller.subjects.isEmpty
-                ? _buildSubjectsEmptyState(context, controller)
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      await controller.loadSubjects();
-                      await controller.loadFeaturedUpdates(showLoader: false);
-                    },
-                    color: Colors.blue,
-                    backgroundColor: Colors.white,
-                    strokeWidth: 2.5,
-                    child: ListView.builder(
-                      physics: AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics(),
+                      )
+                    : Icon(
+                        _getGradeIcon(subject.name),
+                        size: 22,
+                        color: Colors.white,
                       ),
-                      itemCount: controller.subjects.length,
-                      itemBuilder: (context, index) {
-                        final subject = controller.subjects[index];
-                        return _buildSubjectCard(context, subject, controller);
-                      },
+              ),
+              const SizedBox(height: 10),
+              Text(
+                subject.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Icon(Icons.menu_book, size: 14, color: gradeColor),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '$totalChapters Chapters',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1061,6 +1246,7 @@ class HomeDashboard extends StatelessWidget {
 
   Widget _buildNavigationDrawer(BuildContext context) {
     final coreService = Get.find<CoreService>();
+    final isAuthenticated = coreService.authService.isAuthenticated;
     return Drawer(
       child: Container(
         decoration: BoxDecoration(
@@ -1114,7 +1300,7 @@ class HomeDashboard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome back,',
+                          isAuthenticated ? 'Welcome back,' : 'Welcome,',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.white70,
@@ -1123,8 +1309,10 @@ class HomeDashboard extends StatelessWidget {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          coreService.authService.user.value?.firstName ??
-                              'User',
+                          isAuthenticated
+                              ? (coreService.authService.user.value?.firstName ??
+                                  'User')
+                              : 'Guest',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -1133,7 +1321,10 @@ class HomeDashboard extends StatelessWidget {
                         ),
                         SizedBox(height: 2),
                         Text(
-                          coreService.authService.user.value?.phoneNumber ?? '',
+                          isAuthenticated
+                              ? (coreService.authService.user.value?.phoneNumber ??
+                                  '')
+                              : 'Sign up to purchase courses',
                           style: TextStyle(fontSize: 12, color: Colors.white60),
                         ),
                       ],
@@ -1265,15 +1456,36 @@ class HomeDashboard extends StatelessWidget {
 
                   SizedBox(height: 20),
 
-                  _buildModernDrawerMenuItem(
-                    icon: Icons.logout_rounded,
-                    title: 'Logout',
-                    subtitle: 'Sign out of your account',
-                    onTap: () {
-                      Get.find<NavigationDrawerController>().logout();
-                    },
-                    isDestructive: true,
-                  ),
+                  if (isAuthenticated)
+                    _buildModernDrawerMenuItem(
+                      icon: Icons.logout_rounded,
+                      title: 'Logout',
+                      subtitle: 'Sign out of your account',
+                      onTap: () {
+                        Get.find<NavigationDrawerController>().logout();
+                      },
+                      isDestructive: true,
+                    )
+                  else ...[
+                    _buildModernDrawerMenuItem(
+                      icon: Icons.person_add_alt_1_rounded,
+                      title: 'Sign Up',
+                      subtitle: 'Create an account',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Get.toNamed(VIEWS.register.path);
+                      },
+                    ),
+                    _buildModernDrawerMenuItem(
+                      icon: Icons.login_rounded,
+                      title: 'Login',
+                      subtitle: 'Already have an account',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Get.toNamed(VIEWS.login.path);
+                      },
+                    ),
+                  ],
 
                   SizedBox(height: 20),
                 ],

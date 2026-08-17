@@ -12,6 +12,11 @@ class Login extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xffefefef),
+      appBar: AppBar(
+        leading: const AppBackLeading(),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
         padding: EdgeInsets.all(20),
@@ -76,7 +81,10 @@ class Login extends StatelessWidget {
                     ),
                     TextButton(
                       onPressed: () {
-                        Get.toNamed(VIEWS.register.path);
+                        Get.toNamed(
+                          VIEWS.register.path,
+                          arguments: Get.arguments,
+                        );
                       },
                       child: Text(
                         'Register',

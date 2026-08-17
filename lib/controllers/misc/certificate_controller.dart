@@ -213,16 +213,20 @@ class CertificateController extends GetxController {
   }
 
   void openUnlockCourse(CourseCertificationItem item) {
+    final checkoutArgs = {
+      'subjectId': item.subject.id,
+      'subjectName': item.subject.name,
+    };
+    if (!requireAuthForPurchase(checkoutArgs: checkoutArgs)) {
+      return;
+    }
     AppSnackbar.showInfo(
       'Subscription Required',
       'Pay once to unlock this ${subjectLabel.toLowerCase()} before submitting a project.',
     );
     Get.toNamed(
       VIEWS.payments.path,
-      arguments: {
-        'subjectId': item.subject.id,
-        'subjectName': item.subject.name,
-      },
+      arguments: checkoutArgs,
     );
   }
 

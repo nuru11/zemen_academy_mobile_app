@@ -49,10 +49,11 @@ class ProfilePage extends StatelessWidget {
               onPressed: () => safePop(context: context),
             ),
       actions: [
-        IconButton(
-          icon: Icon(Icons.edit, color: Colors.white),
-          onPressed: () => controller.navigateToEditProfile(),
-        ),
+        if (controller.isAuthenticated)
+          IconButton(
+            icon: Icon(Icons.edit, color: Colors.white),
+            onPressed: () => controller.navigateToEditProfile(),
+          ),
         SizedBox(width: 8),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -77,7 +78,9 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () => controller.showProfileImagePickerOptions(),
+                    onTap: controller.isAuthenticated
+                        ? () => controller.showProfileImagePickerOptions()
+                        : null,
                     child: Container(
                       width: 120,
                       height: 120,
@@ -102,7 +105,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   SizedBox(height: 12),
                   Text(
-                    controller.fullName,
+                    controller.isAuthenticated ? controller.fullName : 'Guest',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -110,7 +113,9 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    controller.user?.grade.name ?? '',
+                    controller.isAuthenticated
+                        ? (controller.user?.grade.name ?? '')
+                        : 'Sign up to save your progress',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -134,6 +139,59 @@ class ProfilePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!controller.isAuthenticated) ...[
+            Text(
+              'Create an account',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Sign up to purchase courses and track your progress.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Get.toNamed(VIEWS.register.path),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Sign Up',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Get.toNamed(VIEWS.login.path),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue[600],
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Login',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            SizedBox(height: 40),
+          ] else ...[
           // Profile Information
           Text(
             'Profile Information',
@@ -192,6 +250,7 @@ class ProfilePage extends StatelessWidget {
           ),
 
           SizedBox(height: 40),
+          ],
 
           // Action Buttons
           Text(
@@ -222,6 +281,7 @@ class ProfilePage extends StatelessWidget {
             () => controller.openAppInfo(),
           ),
 
+          if (controller.isAuthenticated) ...[
           SizedBox(height: 32),
 
           // Delete Account Button
@@ -263,6 +323,7 @@ class ProfilePage extends StatelessWidget {
           ),
 
           SizedBox(height: 20),
+          ],
         ],
       ),
     );

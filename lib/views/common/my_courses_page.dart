@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:vector_academy/controllers/controllers.dart';
+import 'package:vector_academy/services/services.dart';
 import 'package:vector_academy/utils/utils.dart';
 import 'package:vector_academy/views/common/certification_cards.dart';
+import 'package:vector_academy/views/views.dart';
 
 class MyCoursesPage extends StatelessWidget {
   const MyCoursesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isAuthenticated =
+        Get.isRegistered<AuthService>() &&
+        Get.find<AuthService>().isAuthenticated;
+
     return GetBuilder<CertificateController>(
       builder: (certController) => Scaffold(
         backgroundColor: Colors.grey[50],
@@ -41,9 +47,23 @@ class MyCoursesPage extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   children: [
                     if (certController.courseItems.isEmpty)
-                      Text(
-                        'No ${subjectsLabel.toLowerCase()} available yet.',
-                        style: TextStyle(color: Colors.grey[600]),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAuthenticated
+                                ? 'No ${subjectsLabel.toLowerCase()} available yet.'
+                                : 'Sign up to track your ${subjectsLabel.toLowerCase()}.',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                          if (!isAuthenticated) ...[
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => Get.toNamed(VIEWS.register.path),
+                              child: const Text('Sign Up'),
+                            ),
+                          ],
+                        ],
                       )
                     else
                       ...certController.courseItems.map(

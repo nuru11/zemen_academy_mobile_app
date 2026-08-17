@@ -109,7 +109,7 @@ class AddPlanController extends GetxController {
       final device = await UserDevice.getDeviceInfo(user?.phoneNumber ?? '');
       final fetched = await SubjectsService().getSubjects(
         device.id,
-        gradeId: user?.grade.id ?? 0,
+        gradeId: user?.grade.id,
       );
       courses = fetched;
       await HiveSubjectsStorage().write('subjects', courses);

@@ -20,6 +20,8 @@ Subject _$SubjectFromJson(Map<String, dynamic> json) => Subject(
       const [],
   isLocked: json['is_locked'] as bool? ?? true,
   certificationAvailable: json['certification_available'] as bool? ?? false,
+  isPopular: json['is_popular'] as bool? ?? false,
+  popularOrder: (json['popular_order'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$SubjectToJson(Subject instance) => <String, dynamic>{
@@ -31,5 +33,7 @@ Map<String, dynamic> _$SubjectToJson(Subject instance) => <String, dynamic>{
   'updated_at': instance.updatedAt.toIso8601String(),
   'is_locked': instance.isLocked,
   'certification_available': instance.certificationAvailable,
+  'is_popular': instance.isPopular,
+  'popular_order': instance.popularOrder,
   'chapters': instance.chapters,
 };
