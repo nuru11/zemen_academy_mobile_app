@@ -117,6 +117,7 @@ class PDFReaderController extends GetxController {
     _isReady.value = false;
     _pageTexts.clear();
     _isTextMode.value = false;
+    _isLandscape.value = false;
     _stopListenInternal();
     _setupOrientations();
     _configureTts();

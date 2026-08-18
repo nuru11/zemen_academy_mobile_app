@@ -34,10 +34,8 @@ class HomeDashboard extends StatelessWidget {
               _buildHomeSearchBar(context, controller),
               if (controller.hasSearchQuery)
                 Expanded(child: _buildGroupedSearchResults(context, controller))
-              else ...[
-                _buildFeaturedUpdatesBar(context, controller),
+              else
                 Expanded(child: _buildSubjectSelection(context, controller)),
-              ],
             ],
           ),
         ),
@@ -253,324 +251,96 @@ class HomeDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedUpdatesBar(
-    BuildContext context,
-    HomeDashboardController controller,
-  ) {
-    final featuredUpdates = controller.featuredUpdates;
-    final isLoading =
-        controller.isFeaturedUpdatesLoading && featuredUpdates.isEmpty;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [const Color(0xFFF8FAFC), const Color(0xFFF1F5F9)],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFCBD5E1).withValues(alpha: 0.9),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.campaign_rounded,
-                  size: 20,
-                  color: Color(0xFF334155),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Latest News & Exams',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    Text(
-                      'Newest posts and exams from admin',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Refresh updates',
-                onPressed: () => controller.loadFeaturedUpdates(showLoader: false),
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFFE2E8F0),
-                ),
-                icon: const Icon(
-                  Icons.refresh_rounded,
-                  size: 20,
-                  color: Color(0xFF334155),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (isLoading)
-            const SizedBox(
-              height: 90,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
-            )
-          else if (featuredUpdates.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-              ),
-              child: Text(
-                'No recent updates yet.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          if (!isLoading && featuredUpdates.isNotEmpty)
-            SizedBox(
-              height: MediaQuery.sizeOf(context).width >= 768 ? 136 : 126,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: featuredUpdates.length,
-                separatorBuilder: (_, index) => const SizedBox(width: 10),
-                itemBuilder: (context, index) => _buildFeaturedUpdateCard(
-                  context,
-                  featuredUpdates[index],
-                  controller,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeaturedUpdateCard(
-    BuildContext context,
-    FeaturedUpdateItem item,
-    HomeDashboardController controller,
-  ) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isCompact = screenWidth < 360;
-    final isTablet = screenWidth >= 768;
-    final cardWidth =
-        (screenWidth * (isCompact ? 0.82 : 0.72)).clamp(220.0, isTablet ? 340.0 : 300.0).toDouble();
-    final cardPadding = isCompact ? 10.0 : 12.0;
-    final titleFontSize = isCompact ? 13.0 : 14.0;
-    final metaFontSize = isCompact ? 10.0 : 11.0;
-
-    final isNews = item.type == FeaturedUpdateType.news;
-    final label = isNews ? 'News' : 'Exam';
-    final chipColor = isNews ? const Color(0xFF1D4ED8) : const Color(0xFF0F766E);
-    final accentColor = isNews ? const Color(0xFFDBEAFE) : const Color(0xFFCCFBF1);
-
-    return GestureDetector(
-      onTap: () => controller.openFeaturedUpdate(item),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: cardWidth,
-          padding: EdgeInsets.all(cardPadding),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: chipColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: chipColor.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Flexible(
-                    child: Text(
-                      toAgoDate(item.createdAt),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(fontSize: metaFontSize, color: Colors.grey[600]),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              Row(
-                children: [
-                  if (item.subjectName != null && item.subjectName!.isNotEmpty)
-                    Expanded(
-                      child: Text(
-                        item.subjectName!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: Colors.grey[700],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSubjectSelection(
     BuildContext context,
     HomeDashboardController controller,
   ) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20),
-      child: controller.isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.blue,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading ${subjectsLabel.toLowerCase()}...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : controller.loadError != null
-          ? _buildSubjectsErrorState(context, controller)
-          : controller.subjects.isEmpty
-          ? _buildSubjectsEmptyState(context, controller)
-          : RefreshIndicator(
-              onRefresh: () async {
-                await controller.loadSubjects();
-                await controller.loadFeaturedUpdates(showLoader: false);
-              },
-              color: Colors.blue,
-              backgroundColor: Colors.white,
-              strokeWidth: 2.5,
-              child: ListView.builder(
-                physics: AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                itemCount: controller.subjects.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPopularCoursesSection(context, controller),
-                        Text(
-                          '$subjectsLabel Selection',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                      ],
-                    );
-                  }
-                  final subject = controller.subjects[index - 1];
-                  return _buildSubjectCard(context, subject, controller);
-                },
+    if (controller.isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Colors.blue,
               ),
             ),
+            SizedBox(height: 16),
+            Text(
+              'Loading ${subjectsLabel.toLowerCase()}...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (controller.loadError != null) {
+      return _buildSubjectsErrorState(context, controller);
+    }
+
+    if (controller.subjects.isEmpty) {
+      return _buildSubjectsEmptyState(context, controller);
+    }
+
+    return RefreshIndicator(
+      onRefresh: controller.loadSubjects,
+      color: Colors.blue,
+      backgroundColor: Colors.white,
+      strokeWidth: 2.5,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildPopularCoursesSection(context, controller),
+                  Text(
+                    '$subjectsLabel Selection',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.78,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final subject = controller.subjects[index];
+                  return _CourseTile(
+                    subject: subject,
+                    onTap: () => controller.selectSubject(subject.id),
+                  );
+                },
+                childCount: controller.subjects.length,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -583,177 +353,48 @@ class HomeDashboard extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 360;
+    final isTablet = screenWidth >= 768;
+    final cardWidth = (screenWidth * (isCompact ? 0.42 : 0.38))
+        .clamp(148.0, isTablet ? 200.0 : 176.0)
+        .toDouble();
+    final cardHeight = cardWidth / 0.78;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDBEAFE),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.local_fire_department_rounded,
-                  size: 20,
-                  color: Color(0xFF1D4ED8),
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Popular Courses',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    // Text(
-                    //   'Highlighted by admin',
-                    //   style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
-                    // ),
-                  ],
-                ),
-              ),
-            ],
+          const Text(
+            'Popular Courses',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: MediaQuery.sizeOf(context).width >= 768 ? 168 : 156,
+            height: cardHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: popularSubjects.length,
               separatorBuilder: (_, index) => const SizedBox(width: 10),
-              itemBuilder: (context, index) => _buildPopularCourseCard(
-                context,
-                popularSubjects[index],
-                controller,
-              ),
+              itemBuilder: (context, index) {
+                final subject = popularSubjects[index];
+                return SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: _CourseTile(
+                    subject: subject,
+                    onTap: () => controller.selectSubject(subject.id),
+                  ),
+                );
+              },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPopularCourseCard(
-    BuildContext context,
-    Subject subject,
-    HomeDashboardController controller,
-  ) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isCompact = screenWidth < 360;
-    final isTablet = screenWidth >= 768;
-    final cardWidth =
-        (screenWidth * (isCompact ? 0.42 : 0.38))
-            .clamp(148.0, isTablet ? 200.0 : 176.0)
-            .toDouble();
-    final gradeColor = _getGradeIconColor(subject.name);
-    final totalChapters = subject.chapters.length;
-
-    return GestureDetector(
-      onTap: () => controller.selectSubject(subject.id),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: cardWidth,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: gradeColor.withValues(alpha: 0.2), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: gradeColor.withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: gradeColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: subject.icon != null && subject.icon!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: subject.icon!,
-                          width: 44,
-                          height: 44,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => const Center(
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Icon(
-                            _getGradeIcon(subject.name),
-                            size: 22,
-                            color: Colors.white,
-                          ),
-                        ),
-                      )
-                    : Icon(
-                        _getGradeIcon(subject.name),
-                        size: 22,
-                        color: Colors.white,
-                      ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                subject.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Icon(Icons.menu_book, size: 14, color: gradeColor),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      '$totalChapters Chapters',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -763,10 +404,7 @@ class HomeDashboard extends StatelessWidget {
     HomeDashboardController controller,
   ) {
     return RefreshIndicator(
-      onRefresh: () async {
-        await controller.loadSubjects();
-        await controller.loadFeaturedUpdates(showLoader: false);
-      },
+      onRefresh: controller.loadSubjects,
       color: Colors.blue,
       backgroundColor: Colors.white,
       strokeWidth: 2.5,
@@ -801,10 +439,7 @@ class HomeDashboard extends StatelessWidget {
     HomeDashboardController controller,
   ) {
     return RefreshIndicator(
-      onRefresh: () async {
-        await controller.loadSubjects();
-        await controller.loadFeaturedUpdates(showLoader: false);
-      },
+      onRefresh: controller.loadSubjects,
       color: Colors.blue,
       backgroundColor: Colors.white,
       strokeWidth: 2.5,
@@ -1057,191 +692,6 @@ class HomeDashboard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildSubjectCard(
-    BuildContext context,
-    Subject subject,
-    HomeDashboardController controller,
-  ) {
-    final totalChapters = subject.chapters.length;
-    final gradeColor = _getGradeIconColor(subject.name);
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => controller.selectSubject(subject.id),
-          borderRadius: BorderRadius.circular(20),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: gradeColor.withValues(alpha: 0.2),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: gradeColor.withValues(alpha: 0.1),
-                    blurRadius: 15,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: gradeColor,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: gradeColor.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: subject.icon != null && subject.icon!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: CachedNetworkImage(
-                              imageUrl: subject.icon!,
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              ),
-                              errorWidget: (context, url, error) {
-                                logger.e(error);
-                                return Icon(
-                                  _getGradeIcon(subject.name),
-                                  size: 30,
-                                  color: Colors.white,
-                                );
-                              },
-                            ),
-                          )
-                        : Icon(
-                            _getGradeIcon(subject.name),
-                            size: 30,
-                            color: Colors.white,
-                          ),
-                  ),
-
-                  SizedBox(width: 16),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          subject.name,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-
-                        SizedBox(height: 6),
-
-                        if (subject.description != null &&
-                            subject.description!.isNotEmpty)
-                          Text(
-                            subject.description!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                        SizedBox(height: 8),
-
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.menu_book,
-                              size: 16,
-                              color: gradeColor,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              '$totalChapters Chapters',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: gradeColor,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getGradeIconColor(String gradeName) {
-    switch (gradeName.toLowerCase()) {
-      case 'grade 6':
-        return Colors.red;
-      case 'grade 8':
-        return Colors.black87;
-      case 'grade 9':
-        return Colors.orange;
-      case 'grade 10':
-        return Colors.red;
-      case 'grade 11':
-        return Colors.purple;
-      default:
-        return Colors.blue;
-    }
-  }
-
-  IconData _getGradeIcon(String gradeName) {
-    switch (gradeName.toLowerCase()) {
-      case 'grade 6':
-        return Icons.book;
-      case 'grade 8':
-        return Icons.library_books;
-      case 'grade 9':
-        return Icons.library_books;
-      case 'grade 10':
-        return Icons.library_books;
-      case 'grade 11':
-        return Icons.library_books;
-      default:
-        return Icons.school;
-    }
   }
 
   Widget _buildNavigationDrawer(BuildContext context) {
@@ -1588,6 +1038,95 @@ class HomeDashboard extends StatelessWidget {
                 size: 14,
               ),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _CourseTile extends StatelessWidget {
+  const _CourseTile({required this.subject, required this.onTap});
+
+  final Subject subject;
+  final VoidCallback onTap;
+
+  bool get _hasIcon => subject.icon != null && subject.icon!.trim().isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chapterCount = subject.chapters.length;
+    final accent = theme.colorScheme.primary;
+
+    final card = Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: onSurfaceVariant.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _hasIcon
+                  ? CachedNetworkImage(
+                      imageUrl: subject.icon!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      placeholder: (context, url) => Container(
+                        color: accent.withValues(alpha: 0.08),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          _thumbnailFallback(accent),
+                    )
+                  : _thumbnailFallback(accent),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subject.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            chapterCount == 1 ? '1 chapter' : '$chapterCount chapters',
+            style: theme.textTheme.labelSmall?.copyWith(color: onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: card,
+      ),
+    );
+  }
+
+  Widget _thumbnailFallback(Color accent) {
+    return Container(
+      color: accent.withValues(alpha: 0.1),
+      child: Center(
+        child: Icon(
+          Icons.menu_book_rounded,
+          color: accent,
+          size: 28,
+        ),
       ),
     );
   }
