@@ -13,10 +13,14 @@ import 'package:vector_academy/utils/storages/storages.dart';
 
 enum ReferralValidationStatus { idle, loading, valid, invalid }
 
+enum RecipientLookupStatus { idle, loading, found, error }
+
 class PaymentController extends GetxController {
   final PaymentService _paymentService = PaymentService();
   final ImagePicker _picker = ImagePicker();
   final TextEditingController referralTextController = TextEditingController();
+  final TextEditingController recipientPhoneController = TextEditingController();
+  static final RegExp _recipientPhonePattern = RegExp(r'^(7|9)\d{8}$');
 
   List<PaymentMethod> paymentMethods = <PaymentMethod>[];
   List<Payment> userPayments = <Payment>[];
@@ -24,6 +28,11 @@ class PaymentController extends GetxController {
   PaymentMethod? selectedPaymentMethod;
   File? selectedReceiptImage;
   String? referralCode;
+  bool purchaseForSelf = true;
+  String recipientPhone = '';
+  RecipientLookupStatus recipientLookupStatus = RecipientLookupStatus.idle;
+  String? recipientLookupMessage;
+  Timer? _recipientDebounceTimer;
 
   int? checkoutPackageId;
   double? amountToPay;
@@ -56,7 +65,9 @@ class PaymentController extends GetxController {
   @override
   void onClose() {
     _referralDebounceTimer?.cancel();
+    _recipientDebounceTimer?.cancel();
     referralTextController.dispose();
+    recipientPhoneController.dispose();
     super.onClose();
   }
 
@@ -77,7 +88,106 @@ class PaymentController extends GetxController {
     referralValidationStatus = ReferralValidationStatus.idle;
   }
 
-  void beginCheckout(Package package) {
+  String normalizeGiftPhone(String raw) {
+    var phone = raw.trim().replaceAll(' ', '').replaceAll('-', '');
+    if (phone.startsWith('+251')) {
+      phone = phone.substring(4);
+    } else if (phone.startsWith('251') && phone.length == 12) {
+      phone = phone.substring(3);
+    } else if (phone.startsWith('0') && phone.length == 10) {
+      phone = phone.substring(1);
+    }
+    return phone;
+  }
+
+  void _resetGiftSelection() {
+    _recipientDebounceTimer?.cancel();
+    purchaseForSelf = true;
+    recipientPhone = '';
+    recipientLookupStatus = RecipientLookupStatus.idle;
+    recipientLookupMessage = null;
+    recipientPhoneController.clear();
+  }
+
+  void _showGiftError(String message) {
+    Get.snackbar(
+      'Gift',
+      message,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
+  }
+
+  bool _ensureGiftRecipient() {
+    if (purchaseForSelf) return true;
+    if (recipientLookupStatus == RecipientLookupStatus.found &&
+        _recipientPhonePattern.hasMatch(recipientPhone)) {
+      return true;
+    }
+    _showGiftError(
+      recipientLookupMessage ?? 'Enter the phone number of an active account.',
+    );
+    return false;
+  }
+
+  void setPurchaseForSelf(bool forSelf) {
+    purchaseForSelf = forSelf;
+    if (forSelf) {
+      _recipientDebounceTimer?.cancel();
+      recipientLookupStatus = RecipientLookupStatus.idle;
+      recipientLookupMessage = null;
+      update();
+      return;
+    }
+    setRecipientPhone(recipientPhoneController.text);
+  }
+
+  void setRecipientPhone(String value) {
+    recipientPhone = normalizeGiftPhone(value);
+    _recipientDebounceTimer?.cancel();
+    if (purchaseForSelf) {
+      update();
+      return;
+    }
+    if (!_recipientPhonePattern.hasMatch(recipientPhone)) {
+      recipientLookupStatus = recipientPhone.isEmpty
+          ? RecipientLookupStatus.idle
+          : RecipientLookupStatus.error;
+      recipientLookupMessage = recipientPhone.isEmpty
+          ? null
+          : 'Enter a valid phone number.';
+      update();
+      return;
+    }
+    recipientLookupStatus = RecipientLookupStatus.loading;
+    recipientLookupMessage = null;
+    update();
+    final phone = recipientPhone;
+    _recipientDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _lookupRecipient(phone);
+    });
+  }
+
+  Future<void> _lookupRecipient(String phone) async {
+    try {
+      await _paymentService.lookupGiftRecipient(phone);
+      if (purchaseForSelf || recipientPhone != phone) return;
+      recipientLookupStatus = RecipientLookupStatus.found;
+      recipientLookupMessage = 'Active account found';
+    } catch (e) {
+      if (purchaseForSelf || recipientPhone != phone) return;
+      recipientLookupStatus = RecipientLookupStatus.error;
+      recipientLookupMessage = e is ApiException
+          ? e.message
+          : 'No active account is registered with that phone number.';
+    }
+    update();
+  }
+
+  bool beginCheckout(Package package) {
+    if (!_ensureGiftRecipient()) {
+      return false;
+    }
     checkoutPackageId = package.id;
     _referralDebounceTimer?.cancel();
 
@@ -85,7 +195,7 @@ class PaymentController extends GetxController {
         referralAmountByPackageId.containsKey(package.id)) {
       amountToPay = referralAmountByPackageId[package.id];
       update();
-      return;
+      return true;
     }
 
     amountToPay = package.price;
@@ -96,6 +206,7 @@ class PaymentController extends GetxController {
     } else {
       update();
     }
+    return true;
   }
 
   bool hasReferralDiscountForPackage(int packageId) {
@@ -257,6 +368,12 @@ class PaymentController extends GetxController {
       return false;
     }
 
+    if (!_ensureGiftRecipient()) {
+      isCreatingPayment = false;
+      update();
+      return false;
+    }
+
     final paymentAmount = checkoutPackageId == packageId && amountToPay != null
         ? amountToPay!
         : (referralAmountByPackageId[packageId] ?? package.price);
@@ -273,6 +390,7 @@ class PaymentController extends GetxController {
         amount: paymentAmount,
         device: device.id,
         referralCode: referralCode,
+        recipientPhone: purchaseForSelf ? null : recipientPhone,
       );
 
       Get.snackbar(
@@ -290,6 +408,7 @@ class PaymentController extends GetxController {
       amountToPay = null;
       _clearReferralPricing();
       referralTextController.clear();
+      _resetGiftSelection();
 
       loadUserPayments();
 
@@ -319,6 +438,7 @@ class PaymentController extends GetxController {
     _clearReferralPricing();
     _referralDebounceTimer?.cancel();
     referralTextController.clear();
+    _resetGiftSelection();
     update();
   }
 
