@@ -96,7 +96,7 @@ class BaseApiClient {
     if (Get.isRegistered<AuthService>()) {
       await Get.find<AuthService>().logout();
     }
-    Get.offAllNamed(VIEWS.home.path);
+    goToStartupRoute();
   }
 
   Options _requestOptions({bool authenticated = false}) {

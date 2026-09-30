@@ -104,6 +104,12 @@ class SubjectDetail extends StatelessWidget {
     SubjectDetailController controller,
   ) {
     final isChapterLocked = controller.isChapterLocked(chapter);
+    final badge = chapter.isNumbered
+        ? chapter
+              .displayNumber(controller.chapters)
+              .toString()
+              .padLeft(2, '0')
+        : (chapter.isIntro ? 'Intro' : 'Outro');
 
     return Container(
       margin: EdgeInsets.only(bottom: 16),
@@ -139,12 +145,13 @@ class SubjectDetail extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  (chapter.chapterNumber).toString().padLeft(2, '0'),
+                  badge,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isChapterLocked
                         ? Colors.grey.shade700
                         : Colors.blue.shade700,
-                    fontSize: 16,
+                    fontSize: chapter.isNumbered ? 16 : 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -168,7 +175,7 @@ class SubjectDetail extends StatelessWidget {
                   SizedBox(height: 4),
                   Text(
                     isChapterLocked
-                        ? 'Locked - Subscribe to unlock this chapter'
+                        ? 'Locked - Subscribe to unlock this section'
                         : (chapter.description ?? ''),
                     style: TextStyle(
                       fontSize: 14,

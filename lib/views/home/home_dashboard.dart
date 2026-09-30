@@ -9,6 +9,8 @@ import 'package:vector_academy/config/support_config.dart';
 import 'package:vector_academy/views/views.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:vector_academy/views/home/home_exam_score_carousel.dart';
+import 'package:vector_academy/views/home/optimal_computer_products_bar.dart';
 
 class HomeDashboard extends StatelessWidget {
   HomeDashboard({super.key});
@@ -20,6 +22,8 @@ class HomeDashboard extends StatelessWidget {
     Get.put(HomeDashboardController());
     Get.put(NavigationDrawerController());
     Get.put(NotificationsController());
+    Get.put(UserScoreController());
+    Get.put(OptimalComputerProductsController());
 
     return GetBuilder<HomeDashboardController>(
       builder: (controller) => Scaffold(
@@ -289,7 +293,15 @@ class HomeDashboard extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: controller.loadSubjects,
+      onRefresh: () async {
+        await controller.loadSubjects();
+        if (Get.isRegistered<UserScoreController>()) {
+          await Get.find<UserScoreController>().refreshResults();
+        }
+        if (Get.isRegistered<OptimalComputerProductsController>()) {
+          await Get.find<OptimalComputerProductsController>().loadSlides();
+        }
+      },
       color: Colors.blue,
       backgroundColor: Colors.white,
       strokeWidth: 2.5,
@@ -298,6 +310,8 @@ class HomeDashboard extends StatelessWidget {
           parent: BouncingScrollPhysics(),
         ),
         slivers: [
+          const SliverToBoxAdapter(child: HomeExamScoreCarousel()),
+          const SliverToBoxAdapter(child: OptimalComputerProductsBar()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -534,7 +548,7 @@ class HomeDashboard extends StatelessWidget {
         return _buildSearchResultTile(
           title: chapter.name,
           subtitle:
-              '$subjectName â€¢ Chapter ${chapter.chapterNumber}${(chapter.description ?? '').isNotEmpty ? ' â€¢ ${chapter.description}' : ''}',
+              '$subjectName â€¢ ${controller.chapterProgressLabel(chapter)}${(chapter.description ?? '').isNotEmpty ? ' â€¢ ${chapter.description}' : ''}',
           icon: Icons.article_outlined,
           onTap: () => controller.openChapterSearchResult(chapter),
         );
@@ -1054,7 +1068,8 @@ class _CourseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final chapterCount = subject.chapters.length;
+    final chapterCount =
+        subject.chapters.where((chapter) => chapter.isNumbered).length;
     final accent = theme.colorScheme.primary;
 
     final card = Container(

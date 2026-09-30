@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
-import 'package:screen_protector/screen_protector.dart';
 import 'package:vector_academy/services/note_file_cache.dart';
+import 'package:vector_academy/utils/screen_capture_guard.dart';
 import 'dart:io';
 import 'dart:async';
 import '../../utils/utils.dart';
@@ -38,6 +38,10 @@ class PDFReaderController extends GetxController {
   String? certificateNumber;
   bool protectContent = false;
   bool enableListen = false;
+  final ScreenCaptureGuard captureGuard = ScreenCaptureGuard();
+
+  RxBool get isScreenCaptured => captureGuard.isScreenCaptured;
+  String get watermarkLabel => captureGuard.watermarkLabel;
 
   PDFViewController? _pdfViewController;
   Timer? _hintTimer;
@@ -163,20 +167,12 @@ class PDFReaderController extends GetxController {
 
   Future<void> _applyScreenProtection() async {
     if (!protectContent) return;
-    try {
-      await ScreenProtector.protectDataLeakageOn();
-    } catch (e) {
-      logger.w('Could not enable screen protection: $e');
-    }
+    await captureGuard.enable();
   }
 
   Future<void> _clearScreenProtection() async {
     if (!protectContent) return;
-    try {
-      await ScreenProtector.protectDataLeakageOff();
-    } catch (e) {
-      logger.w('Could not disable screen protection: $e');
-    }
+    await captureGuard.disable();
   }
 
   void _setupOrientations() {
@@ -355,19 +351,21 @@ class PDFReaderController extends GetxController {
   void _extractRemainingPagesInBackground() {
     if (_remainingQueued || !enableListen) return;
     _remainingQueued = true;
-    _extractChain = _extractChain.then((_) async {
-      final count = _pageExtracted.isNotEmpty
-          ? _pageExtracted.length
-          : _totalPages.value;
-      for (var i = 0; i < count; i++) {
-        if (_closed) return;
-        await _extractOnePage(i);
-        await Future<void>.delayed(Duration.zero);
-      }
-      _disposeListenDocument();
-    }).catchError((e, _) {
-      logger.e('Background PDF text extract failed: $e');
-    });
+    _extractChain = _extractChain
+        .then((_) async {
+          final count = _pageExtracted.isNotEmpty
+              ? _pageExtracted.length
+              : _totalPages.value;
+          for (var i = 0; i < count; i++) {
+            if (_closed) return;
+            await _extractOnePage(i);
+            await Future<void>.delayed(Duration.zero);
+          }
+          _disposeListenDocument();
+        })
+        .catchError((e, _) {
+          logger.e('Background PDF text extract failed: $e');
+        });
   }
 
   void _announce(String message) {
@@ -538,7 +536,10 @@ class PDFReaderController extends GetxController {
   void showDownloadOptions(BuildContext context) {
     if (protectContent) return;
     if (!hasLocalPath || !isReady) {
-      AppSnackbar.showError('Error', 'Certificate is not ready to download yet.');
+      AppSnackbar.showError(
+        'Error',
+        'Certificate is not ready to download yet.',
+      );
       return;
     }
 
@@ -582,7 +583,9 @@ class PDFReaderController extends GetxController {
 
   String _safeFileName(String base, String ext) {
     final safeBase = base.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-    final name = safeBase.isEmpty ? 'zemen_certificate' : safeBase.replaceAll(' ', '_');
+    final name = safeBase.isEmpty
+        ? 'zemen_certificate'
+        : safeBase.replaceAll(' ', '_');
     return '$name.$ext';
   }
 
@@ -621,10 +624,9 @@ class PDFReaderController extends GetxController {
   }
 
   Future<void> _presentFileToUser(File file, String displayName) async {
-    await Share.shareXFiles(
-      [XFile(file.path, name: displayName)],
-      text: 'Zemen Academy Certificate — $pdfTitle',
-    );
+    await Share.shareXFiles([
+      XFile(file.path, name: displayName),
+    ], text: 'Zemen Academy Certificate — $pdfTitle');
   }
 
   Future<File> _downloadCertificateImageFile(String certNumber) async {
@@ -654,7 +656,10 @@ class PDFReaderController extends GetxController {
   Future<void> downloadAsPdf(BuildContext context) async {
     if (protectContent) return;
     if (!hasLocalPath) {
-      AppSnackbar.showError('Error', 'Certificate is not ready to download yet.');
+      AppSnackbar.showError(
+        'Error',
+        'Certificate is not ready to download yet.',
+      );
       return;
     }
 
@@ -721,10 +726,9 @@ class PDFReaderController extends GetxController {
           ? 'zemen_certificate.pdf'
           : '${safeName.replaceAll(' ', '_')}.pdf';
 
-      await Share.shareXFiles(
-        [XFile(localPath, name: fileName)],
-        text: 'Zemen Academy Certificate — $pdfTitle',
-      );
+      await Share.shareXFiles([
+        XFile(localPath, name: fileName),
+      ], text: 'Zemen Academy Certificate — $pdfTitle');
     } catch (e) {
       logger.e('Failed to share PDF: $e');
       AppSnackbar.showError('Share failed', e.toString());

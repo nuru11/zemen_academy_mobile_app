@@ -54,7 +54,7 @@ class SubjectTypeAdapter implements TypeAdapter<Subject> {
       description: json['description'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
-      chapters: (json['chapters'] as List).cast<Chapter>(),
+      chapters: Chapter.listFromCache(json['chapters']),
       isLocked: json['is_locked'] ?? true,
       certificationAvailable: json['certification_available'] ?? false,
       isPopular: json['is_popular'] ?? false,
@@ -67,6 +67,8 @@ class SubjectTypeAdapter implements TypeAdapter<Subject> {
 
   @override
   void write(BinaryWriter writer, Subject obj) {
-    writer.write(obj.toJson());
+    final json = obj.toJson();
+    json['chapters'] = obj.chapters.map((chapter) => chapter.toJson()).toList();
+    writer.write(json);
   }
 }
