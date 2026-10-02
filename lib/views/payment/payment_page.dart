@@ -268,6 +268,13 @@ class PaymentPage extends StatelessWidget {
     final String? targetSubjectName = args is Map
         ? args['subjectName'] as String?
         : null;
+    final dynamic rawExamId = args is Map ? args['examId'] : null;
+    final int? targetExamId = rawExamId is int
+        ? rawExamId
+        : int.tryParse(rawExamId?.toString() ?? '');
+    final String? targetExamName = args is Map
+        ? args['examName'] as String?
+        : null;
 
     Get.put(PaymentController());
     return GetBuilder<PaymentController>(
@@ -284,13 +291,19 @@ class PaymentPage extends StatelessWidget {
           child: SafeArea(
             child: Column(
               children: [
-                _buildModernTopBar(context, targetSubjectName),
+                _buildModernTopBar(
+                  context,
+                  targetSubjectName,
+                  targetExamName: targetExamName,
+                ),
                 Expanded(
                   child: _buildPackageSelection(
                     context,
                     controller,
                     targetSubjectId: targetSubjectId,
                     targetSubjectName: targetSubjectName,
+                    targetExamId: targetExamId,
+                    targetExamName: targetExamName,
                   ),
                 ),
               ],
@@ -301,13 +314,22 @@ class PaymentPage extends StatelessWidget {
     );
   }
 
-  Widget _buildModernTopBar(BuildContext context, String? targetSubjectName) {
-    final title = targetSubjectName == null || targetSubjectName.isEmpty
-        ? 'Choose Package'
-        : 'Unlock $targetSubjectName';
-    final subtitle = targetSubjectName == null || targetSubjectName.isEmpty
-        ? 'Select and pay for your subscription'
-        : 'Pay once to unlock all sections';
+  Widget _buildModernTopBar(
+    BuildContext context,
+    String? targetSubjectName, {
+    String? targetExamName,
+  }) {
+    final hasExam = targetExamName != null && targetExamName.isNotEmpty;
+    final title = hasExam
+        ? 'Unlock $targetExamName'
+        : targetSubjectName == null || targetSubjectName.isEmpty
+            ? 'Choose Package'
+            : 'Unlock $targetSubjectName';
+    final subtitle = hasExam
+        ? 'Pay once to unlock this exam'
+        : targetSubjectName == null || targetSubjectName.isEmpty
+            ? 'Select and pay for your subscription'
+            : 'Pay once to unlock all sections';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -391,19 +413,27 @@ class PaymentPage extends StatelessWidget {
 
   Widget _buildPackageSelection(
     BuildContext context,
-    PaymentController controller,
-    {int? targetSubjectId, String? targetSubjectName}
-  ) {
+    PaymentController controller, {
+    int? targetSubjectId,
+    String? targetSubjectName,
+    int? targetExamId,
+    String? targetExamName,
+  }) {
     if (controller.isLoading) {
       return _buildLoadingState();
     }
 
-    final packagesToShow = targetSubjectId == null
+    final hasExam = targetExamId != null;
+    final List<Package> packagesToShow = hasExam
         ? controller.packages
-        : _prioritizeTargetSubjectPackages(
-            controller.packages,
-            targetSubjectId,
-          );
+            .where((package) => package.exams.contains(targetExamId))
+            .toList()
+        : targetSubjectId == null
+            ? controller.packages
+            : _prioritizeTargetSubjectPackages(
+                controller.packages,
+                targetSubjectId,
+              );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -412,16 +442,18 @@ class PaymentPage extends StatelessWidget {
         children: [
           // Available Packages
           Text(
-            targetSubjectName == null || targetSubjectName.isEmpty
-                ? 'Available Packages'
-                : 'Recommended for $targetSubjectName',
+            hasExam
+                ? 'Packages for ${targetExamName ?? 'this exam'}'
+                : targetSubjectName == null || targetSubjectName.isEmpty
+                    ? 'Available Packages'
+                    : 'Recommended for $targetSubjectName',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
-          if (targetSubjectId != null)
+          if (targetSubjectId != null && !hasExam)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
@@ -476,7 +508,9 @@ class PaymentPage extends StatelessWidget {
           const SizedBox(height: 16),
 
           Expanded(
-            child: ListView.builder(
+            child: packagesToShow.isEmpty && hasExam
+                ? _buildExamPackagesEmptyState()
+                : ListView.builder(
               physics: const BouncingScrollPhysics(),
               itemCount: packagesToShow.length,
               itemBuilder: (context, index) {
@@ -491,6 +525,23 @@ class PaymentPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildExamPackagesEmptyState() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: Text(
+          'This exam is not for sale yet.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
